@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ParkVision AI - Real-Time Parking Space Detection</title>
+    <!-- Tailwind CSS CDN for modern responsive UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for real-time occupancy telemetry -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col">
+
+    <!-- Top Navigation Bar -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 px-6 py-4 flex items-center justify-between shadow-lg">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20 text-white font-bold text-xl">
+                <i class="fa-solid fa-square-parking"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-emerald-400 bg-clip-text text-transparent">
+                    ParkVision AI
+                </h1>
+                <p class="text-xs text-slate-400">Deep Learning & OpenCV Smart Parking Management</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-4">
+            <div class="hidden sm:flex items-center space-x-2 bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-full text-xs text-slate-300">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>System Online</span>
+                <span class="text-slate-500">|</span>
+                <span id="header-fps">-- FPS</span>
+            </div>
+
+            <!-- Video Source Dropdown -->
+            <div class="flex items-center space-x-2">
+                <select id="sourceSelect" onchange="changeSource(this.value)" class="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer">
+                    <option value="video">📹 Test Video (car_test.mp4)</option>
+                    <option value="camera">💻 Mac FaceTime Camera</option>
+                    <option value="bg">🖼️ Reference Frame</option>
+                </select>
+                <button onclick="retrainModel()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 shadow-md shadow-emerald-600/20">
+                    <i class="fa-solid fa-rotate"></i>
+                    <span>Retrain</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 p-6 max-w-7xl w-full mx-auto space-y-6">
+
+        <!-- KPI Metric Cards Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Total Spaces Card -->
+            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 shadow-xl backdrop-blur-sm relative overflow-hidden group hover:border-slate-700 transition">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs uppercase tracking-wider font-semibold text-slate-400">Total Capacity</p>
+                        <h3 id="card-total" class="text-3xl font-extrabold text-white mt-1">--</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-border-all"></i>
+                    </div>
+                </div>
+                <div class="mt-3 text-xs text-slate-400 flex items-center">
+                    <span class="text-blue-400 font-medium mr-1.5"><i class="fa-solid fa-circle-info"></i> Monitored Bays</span>
+                </div>
+            </div>
+
+            <!-- Free / Available Spaces Card -->
+            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 shadow-xl backdrop-blur-sm relative overflow-hidden group hover:border-emerald-500/50 transition">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs uppercase tracking-wider font-semibold text-emerald-400">Available Slots</p>
+                        <h3 id="card-free" class="text-3xl font-extrabold text-emerald-400 mt-1">--</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                </div>
+                <div class="mt-3 text-xs text-emerald-400/80 flex items-center">
+                    <span class="font-medium">Ready for Parking</span>
+                </div>
+            </div>
+
+            <!-- Occupied Spaces Card -->
+            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 shadow-xl backdrop-blur-sm relative overflow-hidden group hover:border-rose-500/50 transition">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs uppercase tracking-wider font-semibold text-rose-400">Occupied Slots</p>
+                        <h3 id="card-occupied" class="text-3xl font-extrabold text-rose-400 mt-1">--</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-car-side"></i>
+                    </div>
+                </div>
+                <div class="mt-3 text-xs text-rose-400/80 flex items-center">
+                    <span class="font-medium">Parked Vehicles</span>
+                </div>
+            </div>
+
+            <!-- Occupancy Rate Card -->
+            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 shadow-xl backdrop-blur-sm relative overflow-hidden group hover:border-cyan-500/50 transition">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs uppercase tracking-wider font-semibold text-cyan-400">Occupancy Rate</p>
+                        <h3 id="card-rate" class="text-3xl font-extrabold text-cyan-400 mt-1">--%</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-chart-pie"></i>
+                    </div>
+                </div>
+                <div class="w-full bg-slate-800 rounded-full h-2 mt-3 overflow-hidden">
+                    <div id="progress-bar" class="bg-gradient-to-r from-emerald-500 via-cyan-500 to-rose-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Dashboard Split: Video Stream & Analytics Panel -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Left: Real-Time Video Stream Player (2 Columns) -->
+            <div class="lg:col-span-2 bg-slate-900/60 border border-slate-800 rounded-2xl p-4 shadow-2xl flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-3 px-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="relative flex h-3 w-3">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+                        </span>
+                        <h2 class="text-sm font-bold text-slate-200 tracking-wide">LIVE CCTV INFERENCE FEED</h2>
+                    </div>
+                    <div class="text-xs text-slate-400 font-mono" id="stream-timestamp">--:--:--</div>
+                </div>
+
+                <!-- Video Frame Container -->
+                <div class="relative bg-black rounded-xl overflow-hidden shadow-inner border border-slate-800 aspect-video flex items-center justify-center">
+                    <img id="videoStream" src="/video_feed" alt="Live Parking Feed" class="w-full h-full object-contain">
+                </div>
+
+                <div class="flex items-center justify-between text-xs text-slate-400 mt-3 px-2">
+                    <div class="flex items-center space-x-4">
+                        <span class="flex items-center space-x-1.5"><span class="w-3 h-3 rounded-sm bg-emerald-500 inline-block"></span><span>Green: Free Bay</span></span>
+                        <span class="flex items-center space-x-1.5"><span class="w-3 h-3 rounded-sm bg-rose-600 inline-block"></span><span>Red: Occupied Bay</span></span>
+                    </div>
+                    <button onclick="reloadPositions()" class="text-slate-400 hover:text-white transition flex items-center space-x-1">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                        <span>Reload Positions</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right: Real-time Telemetry & Slot Status Grid (1 Column) -->
+            <div class="space-y-6">
+
+                <!-- Occupancy Timeline Chart -->
+                <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 shadow-xl">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm font-bold text-slate-200 flex items-center space-x-2">
+                            <i class="fa-solid fa-chart-line text-cyan-400"></i>
+                            <span>Live Occupancy Trend</span>
+                        </h3>
+                        <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">Real-time</span>
+                    </div>
+                    <div class="h-44 w-full">
+                        <canvas id="occupancyChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Parking Slot Matrix List -->
+                <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm font-bold text-slate-200 flex items-center space-x-2">
+                            <i class="fa-solid fa-table-cells text-emerald-400"></i>
+                            <span>Slot Status Grid</span>
+                        </h3>
+                        <span id="slots-count-badge" class="text-xs font-mono text-slate-400">0 Slots</span>
+                    </div>
+
+                    <!-- Scrollable slots table -->
+                    <div class="max-h-56 overflow-y-auto pr-1 space-y-1.5" id="slots-container">
+                        <!-- Populated by JavaScript -->
+                        <div class="text-center py-6 text-slate-500 text-xs">Loading parking slot status...</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Quick How-To / Developer Guide Accordion -->
+        <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 text-xs text-slate-400 space-y-3">
+            <h4 class="font-bold text-slate-300 text-sm flex items-center space-x-2">
+                <i class="fa-solid fa-terminal text-emerald-400"></i>
+                <span>MacBook Command Center & Operational Tips</span>
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-slate-300">
+                <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                    <p class="font-semibold text-emerald-400 mb-1">1. Retrain CNN Model</p>
+                    <code class="block bg-slate-950 px-2 py-1 rounded text-[11px] font-mono text-emerald-300">python train.py</code>
+                    <p class="text-[11px] text-slate-400 mt-1">Trains on your dataset with Apple MPS GPU acceleration.</p>
+                </div>
+                <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                    <p class="font-semibold text-cyan-400 mb-1">2. Mark Custom Parking Slots</p>
+                    <code class="block bg-slate-950 px-2 py-1 rounded text-[11px] font-mono text-cyan-300">python parking_space_picker.py</code>
+                    <p class="text-[11px] text-slate-400 mt-1">Click to add/delete parking boxes and save to <code>carposition.pkl</code>.</p>
+                </div>
+                <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                    <p class="font-semibold text-purple-400 mb-1">3. REST API Endpoint</p>
+                    <code class="block bg-slate-950 px-2 py-1 rounded text-[11px] font-mono text-purple-300">GET /space_count</code>
+                    <p class="text-[11px] text-slate-400 mt-1">Fetch live JSON payload of all slots and occupancy rate.</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 bg-slate-950 py-4 px-6 text-center text-xs text-slate-500">
+        ParkVision AI &bull; Built with Flask, OpenCV & PyTorch &bull; Apple Silicon Accelerated
+    </footer>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

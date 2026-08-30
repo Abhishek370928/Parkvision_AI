@@ -1,0 +1,38 @@
+/* Modern Custom Scrollbar & Micro-interactions */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.6);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(51, 65, 85, 0.8);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(71, 85, 105, 1);
+}
+
+.glass-card {
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+.glow-green {
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.25);
+}
+.glow-red {
+    box-shadow: 0 0 15px rgba(244, 63, 94, 0.25);
+}
+
+@keyframes pulseGlow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+.pulse-dot {
+    animation: pulseGlow 2s infinite ease-in-out;
+}
